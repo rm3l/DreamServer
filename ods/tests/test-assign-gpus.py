@@ -141,6 +141,18 @@ class TestTwoGpuColoc:
         for name in ("whisper", "comfyui", "embeddings"):
             assert out["services"][name]["gpus"] == [self.GPU1]
 
+    def test_model_needs_both_gpus_llama_pipeline(self):
+        _, out, _ = run(self.TOPO, 30000)
+        p = parallelism(out)
+        assert p["mode"] == "pipeline"
+        assert p["tensor_parallel_size"] == 1
+        assert p["pipeline_parallel_size"] == 2
+
+    def test_no_gpu_idle(self):
+        for model_size in (20000, 30000):
+            _, out, _ = run(self.TOPO, model_size)
+            assert all_assigned_uuids(out) == {self.GPU0, self.GPU1}
+
 
 class TestTwoGpuBusyPeer:
     GPU0 = "GPU-free"
@@ -183,18 +195,6 @@ class TestTwoGpuBusyPeer:
         assert rc == 0, stderr
         assert llama(out)["gpus"] == [self.GPU0]
         assert parallelism(out)["mode"] == "none"
-
-    def test_model_needs_both_gpus_llama_pipeline(self):
-        _, out, _ = run(self.TOPO, 30000)
-        p = parallelism(out)
-        assert p["mode"] == "pipeline"
-        assert p["tensor_parallel_size"] == 1
-        assert p["pipeline_parallel_size"] == 2
-
-    def test_no_gpu_idle(self):
-        for model_size in (20000, 30000):
-            _, out, _ = run(self.TOPO, model_size)
-            assert all_assigned_uuids(out) == {self.GPU0, self.GPU1}
 
 
 # ── 4 GPU — SOC / cross-NUMA PCIe ────────────────────────────────────────────
